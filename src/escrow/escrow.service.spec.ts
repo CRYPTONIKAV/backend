@@ -123,7 +123,10 @@ describe('EscrowService', () => {
       expect(args[0]).toEqual(u64(4242n));
       expect(args[1]).toBe('GABC...FUNDER');
       expect(args[3]).toBe(1_000_000_000n);
-      expect(typeof args[4]).toBe('bigint');
+      // deadline is u64 too, in whole unix seconds (#301, #508).
+      expect(args[4]).toEqual(
+        u64(BigInt(Math.floor(escrow.deadline!.getTime() / 1000))),
+      );
       expect(escrow.status).toBe(EscrowStatus.LOCKED);
       expect(escrow.fundTxHash).toBe('tx-hash-123');
     });
@@ -902,7 +905,11 @@ describe('EscrowService', () => {
 
       expect(soroban.invoke).toHaveBeenCalledWith(
         'release',
-        expect.any(Array),
+        // issue_id is still u64-wrapped on the pinned-contract path (#301).
+        [
+          { __sorobanU64: expect.any(BigInt) as bigint },
+          [['GRECIPIENT', TOTAL_BASIS_POINTS]],
+        ],
         { contractId: 'CPINNED' },
       );
     });
