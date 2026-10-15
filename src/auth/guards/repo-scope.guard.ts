@@ -13,7 +13,6 @@ import { Repository } from 'typeorm';
 import { Repository as RepositoryEntity } from '../../common/entities';
 import { User } from '../../common/entities';
 import { UserRole } from '../../common/enums';
-import { ROLES_KEY } from '../decorators/roles.decorator';
 import { REPO_SCOPED_SYNC_KEY } from '../decorators/repo-scoped-sync.decorator';
 import { AppConfig } from '../../config/configuration';
 
@@ -77,7 +76,8 @@ export class RepoScopeGuard implements CanActivate {
       where: { id: request.user.userId },
       select: { id: true, roles: true },
     });
-    if (!user) throw new ForbiddenException('Authenticated user no longer exists');
+    if (!user)
+      throw new ForbiddenException('Authenticated user no longer exists');
     if (!user.roles.includes(UserRole.MAINTAINER)) {
       throw new ForbiddenException('Maintainer role required');
     }
@@ -106,14 +106,18 @@ export class RepoScopeGuard implements CanActivate {
 
     // Tracked with no maintainer yet: allow, and claim it for this user so the
     // scope is explicit from here on.
-    await this.repositoryRepo.update({ id: tracked.id }, { maintainerId: user.id });
+    await this.repositoryRepo.update(
+      { id: tracked.id },
+      { maintainerId: user.id },
+    );
     return true;
   }
 
   /** Exact `owner/repo` entries from `GITHUB_SYNC_ALLOWED_REPOS`. */
   private isAllowlisted(fullName: string): boolean {
-    const raw = this.configService.get('github', { infer: true })
-      .syncAllowedRepos;
+    const raw = this.configService.get('github', {
+      infer: true,
+    }).syncAllowedRepos;
     if (!raw) return false;
     return raw
       .split(',')
