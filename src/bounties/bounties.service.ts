@@ -105,23 +105,22 @@ export class BountiesService {
     const bounty = await this.findOne(id);
     assertTransition(bounty.status, BountyStatus.CLAIMED);
 
-    // Verify caller is claiming for themselves
-    bounty.claimedById = callerUserId;
+    // The claimant is always the authenticated caller (#469); never a client-supplied id.
     const contributor = await this.userRepo.findOne({
-      where: { id: contributorId },
+      where: { id: callerUserId },
     });
     if (!contributor) {
       throw new BadRequestException(
-        `Contributor ${contributorId} does not correspond to a known user`,
+        `Contributor ${callerUserId} does not correspond to a known user`,
       );
     }
     if (!contributor.stellarAddress) {
       throw new BadRequestException(
-        `Contributor ${contributorId} has no linked Stellar address`,
+        `Contributor ${callerUserId} has no linked Stellar address`,
       );
     }
 
-    bounty.claimedById = contributorId;
+    bounty.claimedById = callerUserId;
     bounty.status = BountyStatus.CLAIMED;
     bounty.claimedAt = new Date();
     return this.bountyRepo.save(bounty);
