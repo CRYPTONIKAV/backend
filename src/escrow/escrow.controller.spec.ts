@@ -321,5 +321,14 @@ describe('EscrowController', () => {
         }),
       );
     });
+
+    it('passes null deadline through so the service applies its default window', async () => {
+      const dto = plainToInstance(FundEscrowDto, { ...base });
+      mockEscrowService.fund.mockResolvedValueOnce({ id: 'escrow-1' });
+      await controller.fund(dto);
+      expect(mockEscrowService.fund).toHaveBeenCalledWith(
+        expect.objectContaining({ deadline: null }),
+      );
+    });
   });
 });
