@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -134,14 +135,45 @@ describe('BountiesService', () => {
     );
   });
 
-  it('claim moves FUNDED -> CLAIMED and records the contributor', async () => {
+  it('claim moves FUNDED -> CLAIMED and records the caller as claimant', async () => {
     bountyRepo.findOne.mockResolvedValue({
       id: 'b1',
       status: BountyStatus.FUNDED,
     });
+    userRepo.findOne.mockResolvedValue({
+      id: 'contributor-1',
+      stellarAddress: 'GCONTRIB',
+    });
     const bounty = await service.claim('b1', 'contributor-1');
+    expect(userRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 'contributor-1' },
+    });
     expect(bounty.status).toBe(BountyStatus.CLAIMED);
     expect(bounty.claimedById).toBe('contributor-1');
+  });
+
+  it('claim rejects a caller that is not a known user', async () => {
+    bountyRepo.findOne.mockResolvedValue({
+      id: 'b1',
+      status: BountyStatus.FUNDED,
+    });
+    userRepo.findOne.mockResolvedValue(null);
+    await expect(service.claim('b1', 'ghost')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('claim rejects a caller without a linked Stellar address', async () => {
+    const stored = { id: 'b1', status: BountyStatus.FUNDED, claimedById: null };
+    bountyRepo.findOne.mockResolvedValue(stored);
+    userRepo.findOne.mockResolvedValue({
+      id: 'contributor-1',
+      stellarAddress: null,
+    });
+    await expect(service.claim('b1', 'contributor-1')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(stored.claimedById).toBeNull();
   });
 
   it('markMergedAndRelease releases escrow to the contributor and moves to PAID', async () => {
