@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Octokit } from '@octokit/rest';
 import { GithubSyncService } from './github-sync.service';
 import { GITHUB_OCTOKIT } from './octokit.provider';
 import { Issue, Repository } from '../common/entities';
@@ -69,7 +68,9 @@ describe('GithubSyncService — incremental issue sync (#315)', () => {
             findOne: jest.fn(),
             create: jest.fn((data: Partial<Repository>) => data),
             save: jest.fn((data: Partial<Repository>) => Promise.resolve(data)),
-            merge: jest.fn((_e: Partial<Repository>, data: Partial<Repository>) => data),
+            merge: jest.fn(
+              (_e: Partial<Repository>, data: Partial<Repository>) => data,
+            ),
           },
         },
         {
@@ -80,7 +81,7 @@ describe('GithubSyncService — incremental issue sync (#315)', () => {
             issues: { listForRepo },
             repos: { get: jest.fn() },
             rateLimit: { get: jest.fn() },
-          } as unknown as Octokit,
+          },
         },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
@@ -131,7 +132,10 @@ describe('GithubSyncService — incremental issue sync (#315)', () => {
 
   it('still upserts only the issues GitHub returned', async () => {
     listForRepo.mockResolvedValue({
-      data: [rawIssue(1, '2026-06-02T00:00:00Z'), rawIssue(2, '2026-06-03T00:00:00Z')],
+      data: [
+        rawIssue(1, '2026-06-02T00:00:00Z'),
+        rawIssue(2, '2026-06-03T00:00:00Z'),
+      ],
       headers: {},
     });
 
