@@ -250,12 +250,21 @@ describe('EscrowController', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('transforms an ISO deadline into a Date for EscrowService.fund', () => {
+    it('keeps an ISO deadline as a string for EscrowService.fund to convert', () => {
       const dto = plainToInstance(FundEscrowDto, {
         ...base,
         deadline: '2026-12-31T00:00:00.000Z',
       });
-      expect(dto.deadline).toBeInstanceOf(Date);
+      expect(typeof dto.deadline).toBe('string');
+    });
+
+    it('rejects a past deadline', async () => {
+      const dto = plainToInstance(FundEscrowDto, {
+        ...base,
+        deadline: '2020-01-01T00:00:00.000Z',
+      });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'deadline')).toBe(true);
     });
 
     it('rejects a non-numeric onChainIssueId', async () => {

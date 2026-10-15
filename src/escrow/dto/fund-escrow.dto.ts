@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import {
-  IsDateString,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -14,6 +13,7 @@ import {
   IsSupportedEscrowAsset,
 } from '../../common/validators/money.validator';
 import { IsStellarAddress } from '../../common/validators/stellar-address.validator';
+import { IsFutureDate } from '../../common/validators/date.validator';
 
 export class FundEscrowDto {
   @ApiProperty({ description: 'Amount to lock in the escrow contract' })
@@ -89,7 +89,7 @@ export class FundEscrowDto {
       'ISO 8601 refund-deadline passed to escrow::fund (defaults to the configured window)',
   })
   @IsOptional()
-  @IsDateString()
-  @Type(() => Date)
-  deadline?: Date;
+  @IsISO8601()
+  @IsFutureDate()
+  deadline?: string;
 }
