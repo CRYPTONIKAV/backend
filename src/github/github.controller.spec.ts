@@ -61,13 +61,14 @@ describe('GithubController', () => {
   });
 
   describe('guard and role wiring (#62, #313)', () => {
-    it('is guarded by JwtAuthGuard and RolesGuard', () => {
+    it('is guarded by JwtAuthGuard, RolesGuard and RepoScopeGuard', () => {
       const guards = Reflect.getMetadata(
         '__guards__',
         GithubController.prototype.sync,
       );
 
-      expect(guards).toEqual([JwtAuthGuard, RolesGuard]);
+      // Order matters: RepoScopeGuard reads req.user set by JwtAuthGuard (#312).
+      expect(guards).toEqual([JwtAuthGuard, RolesGuard, RepoScopeGuard]);
     });
 
     it('restricts the route to the MAINTAINER role', () => {
