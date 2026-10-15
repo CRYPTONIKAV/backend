@@ -905,7 +905,11 @@ describe('EscrowService', () => {
 
       expect(soroban.invoke).toHaveBeenCalledWith(
         'release',
-        expect.any(Array),
+        // issue_id is still u64-wrapped on the pinned-contract path (#301).
+        [
+          { __sorobanU64: expect.any(BigInt) as bigint },
+          [['GRECIPIENT', TOTAL_BASIS_POINTS]],
+        ],
         { contractId: 'CPINNED' },
       );
     });
