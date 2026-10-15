@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  NotImplementedException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -217,7 +218,18 @@ export class MilestonesService {
     return this.milestoneRepo.find();
   }
 
-  allocateBudget(id: string) {
-    return Promise.resolve({ id, status: 'budget_allocated' });
+  /**
+   * Not implemented yet (#253, #533). This used to resolve
+   * `{ id, status: 'budget_allocated' }` without touching storage or the
+   * milestones contract, so the route reported an allocation that never
+   * happened. It now answers 501 until it is wired to the contract's
+   * `allocate`.
+   */
+  allocateBudget(id: string): Promise<never> {
+    return Promise.reject(
+      new NotImplementedException(
+        `Milestone budget allocation is not implemented yet (milestone ${id})`,
+      ),
+    );
   }
 }

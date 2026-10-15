@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotImplementedException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { MilestonesService } from './milestones.service';
@@ -406,6 +406,14 @@ describe('MilestonesService', () => {
         '333.3333333',
         'RECIPIENT_ADDR',
         undefined,
+      );
+    });
+  });
+
+  describe('allocateBudget (#533)', () => {
+    it('answers 501 instead of reporting a fake allocation', async () => {
+      await expect(service.allocateBudget('m1')).rejects.toBeInstanceOf(
+        NotImplementedException,
       );
     });
   });

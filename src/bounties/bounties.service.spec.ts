@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotImplementedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -344,6 +344,21 @@ describe('BountiesService', () => {
     expect(qb.andWhere).toHaveBeenCalledWith(
       'repository.primaryLanguage = :primaryLanguage',
       { primaryLanguage: 'TypeScript' },
+    );
+  });
+});
+
+// Standalone: approve/reject touch no dependencies, so they're tested without
+// the shared TestingModule above.
+describe('BountiesService approve / reject (#533)', () => {
+  const service = Object.create(BountiesService.prototype) as BountiesService;
+
+  it('answer 501 instead of reporting a fake approval or rejection', async () => {
+    await expect(service.approve('b1')).rejects.toBeInstanceOf(
+      NotImplementedException,
+    );
+    await expect(service.reject('b1')).rejects.toBeInstanceOf(
+      NotImplementedException,
     );
   });
 });
