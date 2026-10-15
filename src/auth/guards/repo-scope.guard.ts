@@ -17,9 +17,11 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 import { REPO_SCOPED_SYNC_KEY } from '../decorators/repo-scoped-sync.decorator';
 import { AppConfig } from '../../config/configuration';
 
-interface AuthenticatedRequest extends Request {
+interface AuthenticatedRequest extends Request<{
+  owner?: string;
+  repo?: string;
+}> {
   user?: { userId: string };
-  params?: { owner?: string; repo?: string };
 }
 
 /**
