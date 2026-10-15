@@ -47,7 +47,7 @@ describe('GithubSyncService — incremental issue sync (#315)', () => {
   });
 
   beforeEach(async () => {
-    listForRepo = jest.fn().mockResolvedValue({ data: [] });
+    listForRepo = jest.fn().mockResolvedValue({ data: [], headers: {} });
     issueRepo = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((data: Partial<Issue>) => data),
@@ -74,9 +74,13 @@ describe('GithubSyncService — incremental issue sync (#315)', () => {
         },
         {
           provide: GITHUB_OCTOKIT,
+          // GithubSyncService injects the Octokit instance itself, not a
+          // wrapper, so the mock must expose the namespaces it calls (#512).
           useValue: {
-            octokit: { issues: { listForRepo } } as unknown as Octokit,
-          },
+            issues: { listForRepo },
+            repos: { get: jest.fn() },
+            rateLimit: { get: jest.fn() },
+          } as unknown as Octokit,
         },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
@@ -128,6 +132,7 @@ describe('GithubSyncService — incremental issue sync (#315)', () => {
   it('still upserts only the issues GitHub returned', async () => {
     listForRepo.mockResolvedValue({
       data: [rawIssue(1, '2026-06-02T00:00:00Z'), rawIssue(2, '2026-06-03T00:00:00Z')],
+      headers: {},
     });
 
     const result = await service.syncIssues(
@@ -146,6 +151,7 @@ describe('GithubSyncService — incremental issue sync (#315)', () => {
         { ...rawIssue(1, '2026-06-02T00:00:00Z'), pull_request: { url: 'x' } },
         rawIssue(2, '2026-06-03T00:00:00Z'),
       ],
+      headers: {},
     });
 
     const result = await service.syncIssues(
