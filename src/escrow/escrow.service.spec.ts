@@ -3,7 +3,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { EscrowService } from './escrow.service';
-import { SorobanClientService, u64 } from './soroban-client.service';
+import {
+  SorobanClientService,
+  SorobanPendingError,
+  u64,
+} from './soroban-client.service';
 import { Escrow, Payment, User } from '../common/entities';
 import { AssetType, EscrowStatus, PaymentStatus } from '../common/enums';
 import { TOTAL_BASIS_POINTS } from './split-math.util';
@@ -75,9 +79,7 @@ describe('EscrowService', () => {
         entity === Escrow ? escrowRepo.findOne(options) : Promise.resolve(null),
       ),
       find: jest.fn((entity: unknown, options: unknown) =>
-        entity === Payment
-          ? paymentRepo.find(options)
-          : Promise.resolve([]),
+        entity === Payment ? paymentRepo.find(options) : Promise.resolve([]),
       ),
       save: jest.fn((entity: unknown, data: unknown) =>
         entity === Payment ? paymentRepo.save(data) : escrowRepo.save(data),
@@ -221,6 +223,29 @@ describe('EscrowService', () => {
       );
     });
 
+    it('keeps the escrow PENDING with the tx hash when the poll times out (#527)', async () => {
+      soroban.invoke.mockRejectedValueOnce(new SorobanPendingError('tx-abc'));
+
+      await expect(
+        service.fund({
+          amount: '10',
+          asset: AssetType.XLM,
+          funderAddress: 'G...',
+          bountyId: 'bounty-1',
+        }),
+      ).rejects.toBeInstanceOf(SorobanPendingError);
+
+      const savedCalls = (
+        escrowRepo.save.mock.calls as [Partial<Escrow>][]
+      ).map((c) => c[0]);
+      const last = savedCalls[savedCalls.length - 1];
+      expect(last.status).toBe(EscrowStatus.PENDING);
+      expect(last.fundTxHash).toBe('tx-abc');
+      expect(savedCalls.every((e) => e.status !== EscrowStatus.FAILED)).toBe(
+        true,
+      );
+    });
+
     it('keeps the escrow LOCKED when the on-chain call succeeded but the local write failed (#302, #42)', async () => {
       // First save (the PENDING row) succeeds; the post-invoke save fails —
       // exactly the post-on-chain-success failure #42 describes.
@@ -241,12 +266,12 @@ describe('EscrowService', () => {
       const savedCalls = (
         escrowRepo.save.mock.calls as [Partial<Escrow>][]
       ).map((c) => c[0]);
-      expect(
-        savedCalls.some((e) => e.status === EscrowStatus.FAILED),
-      ).toBe(false);
-      expect(
-        savedCalls.every((e) => e.status !== EscrowStatus.FAILED),
-      ).toBe(true);
+      expect(savedCalls.some((e) => e.status === EscrowStatus.FAILED)).toBe(
+        false,
+      );
+      expect(savedCalls.every((e) => e.status !== EscrowStatus.FAILED)).toBe(
+        true,
+      );
 
       // The retry records the reconciliation marker (and keeps the LOCKED
       // status + tx hash) so a reconciliation job can find the row.
@@ -278,9 +303,9 @@ describe('EscrowService', () => {
       const savedCalls = (
         escrowRepo.save.mock.calls as [Partial<Escrow>][]
       ).map((c) => c[0]);
-      expect(
-        savedCalls.some((e) => e.status === EscrowStatus.FAILED),
-      ).toBe(false);
+      expect(savedCalls.some((e) => e.status === EscrowStatus.FAILED)).toBe(
+        false,
+      );
     });
 
     it.each([
@@ -572,15 +597,18 @@ describe('EscrowService', () => {
       escrowRepo.findOne.mockResolvedValue({ ...lockedEscrow });
       paymentRepo.find.mockResolvedValue([]);
       const order: string[] = [];
-      dataSource.manager.findOne.mockImplementation(
-        async () => {
-          order.push('locked-read');
-          return { ...lockedEscrow };
-        },
-      );
+      dataSource.manager.findOne.mockImplementation(async () => {
+        order.push('locked-read');
+        return { ...lockedEscrow };
+      });
       soroban.invoke.mockImplementation(async () => {
         order.push('invoke');
-        return { txHash: 'tx-1', ledger: 1, returnValue: null, status: 'SUCCESS' };
+        return {
+          txHash: 'tx-1',
+          ledger: 1,
+          returnValue: null,
+          status: 'SUCCESS',
+        };
       });
       paymentRepo.save.mockImplementation(async (data: Partial<Payment>) => {
         order.push('payment-write');
@@ -834,7 +862,9 @@ describe('EscrowService', () => {
     it('records a failed withdraw via the invokeOnLockedEscrow failure path (#89) and keeps the escrow LOCKED', async () => {
       const escrow = lockedPoolEscrow();
       escrowRepo.findOne.mockResolvedValue(escrow);
-      soroban.invoke.mockRejectedValueOnce(new Error('withdraw simulation failed'));
+      soroban.invoke.mockRejectedValueOnce(
+        new Error('withdraw simulation failed'),
+      );
 
       await expect(
         service.poolWithdraw('escrow-pool', '10.0000000', 'GRECIPIENT'),
