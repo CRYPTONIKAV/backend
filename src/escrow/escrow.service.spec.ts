@@ -998,6 +998,38 @@ describe('EscrowService', () => {
       expect(recipients.reduce((sum, r) => sum + r[1], 0)).toBe(10_000);
     });
 
+    it('keeps the u64 key and records failures through the locking manager (#485)', async () => {
+      escrowRepo.findOne.mockResolvedValue({
+        id: 'escrow-485',
+        status: EscrowStatus.LOCKED,
+        amount: '100',
+        asset: AssetType.USDC,
+        bountyId: 'bounty-485',
+        onChainId: '4850',
+      });
+      paymentRepo.find.mockResolvedValue([]);
+      soroban.invoke.mockRejectedValueOnce(new Error('simulation failed'));
+
+      await expect(
+        service.splitRelease('escrow-485', [
+          { recipientAddress: 'GA', percentage: 50 },
+          { recipientAddress: 'GB', percentage: 50 },
+        ]),
+      ).rejects.toThrow('simulation failed');
+
+      // Both halves of the #301 / #303 merge must survive in invokeRelease.
+      const [, args] = soroban.invoke.mock.calls[0] as [string, unknown[]];
+      expect(args[0]).toEqual(u64(4850n));
+      expect(dataSource.manager.save).toHaveBeenCalledWith(
+        Escrow,
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            lastFailure: expect.objectContaining({ operation: 'splitRelease' }),
+          }),
+        }),
+      );
+    });
+
     it('never invokes a split_release method (#161)', async () => {
       escrowRepo.findOne.mockResolvedValue({
         id: 'escrow-4',
