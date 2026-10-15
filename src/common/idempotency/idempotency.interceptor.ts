@@ -40,14 +40,15 @@ export const IDEMPOTENCY_KEY_TTL_MS = 24 * 60 * 60 * 1000;
  *
  * Must comfortably outlast the slowest legitimate handler: the escrow
  * mutations this interceptor guards go through
- * SorobanClientService.invoke → pollTransaction, which polls up to 10
- * times at 2000ms (~20s) *on top of* the getAccount/simulate/send RPC
- * round-trips. A 30s window was shorter than that worst case, letting a
- * client retry reclaim a row whose original request was still actively
- * running and re-execute a concurrent money-moving operation (#90). 90s
- * leaves ~4x headroom over the poll ceiling for RPC latency.
+ * SorobanClientService.invoke → pollTransaction, which polls for the
+ * transaction's full 60s time bound (31 × 2000ms, ~62s, #527) *on top of*
+ * the getAccount/simulate/send RPC round-trips. A 30s window was shorter
+ * than that worst case, letting a client retry reclaim a row whose original
+ * request was still actively running and re-execute a concurrent
+ * money-moving operation (#90). 180s leaves ~3x headroom over the poll
+ * ceiling for RPC latency.
  */
-export const STALE_PROCESSING_MS = 90 * 1000;
+export const STALE_PROCESSING_MS = 180 * 1000;
 
 /** Postgres SQLSTATE for unique_violation. */
 const PG_UNIQUE_VIOLATION = '23505';
